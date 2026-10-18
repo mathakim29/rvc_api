@@ -5,18 +5,21 @@ description = "A simple proof-of-concept for RVC"
 readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
-    "bun>=0.0.8",
     "fairseq>=0.12.2",
+    "pedalboard>=0.9.17",
+    "python-dotenv>=1.2.4",
     "rvc-python>=0.1.5",
+    "scipy>=1.15.3",
     "setuptools<81",
+    "sounddevice>=0.5.6",
+    "soundfile>=0.12.1",
 ]
 
-# [project.scripts]
-# rvc-api = "rvc_api:main"
+[project.scripts]
+rvc-api = "rvc_api:main"
+rvc-live = "rvc_api:live"
 
-# [build-system]
-# requires = ["uv_build>=0.13.1,<0.14.0"]
-# build-backend = "uv_build"
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
 
-[s]
-s=3

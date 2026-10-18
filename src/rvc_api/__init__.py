@@ -1,36 +1,18 @@
-# main.py
-import re
 import shutil
 import tempfile
-import threading
 import zipfile
+import os
 from pathlib import Path
-
-import torch
-from fairseq.data.dictionary import Dictionary
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from rvc_python.infer import RVCInference
+import uvicorn
+load_dotenv()
+API_PORT = os.getenv("API_PORT", '8000')
 
-torch.serialization.add_safe_globals([Dictionary])
-
-MODELS_DIR = Path("models")
-MODELS_DIR.mkdir(exist_ok=True)
-MAX_ZIP_BYTES = 1024 * 1024 * 1024  # 1 GB uncompressed cap
-NAME_RE = r"[\w.\- ]+"
+from .engine import MODELS_DIR, safe_name, get_model_paths, rvc, current_model, lock
 
 app = FastAPI()
-rvc = RVCInference(device="cuda:0")
-current_model = None
-lock = threading.Lock()
-
-
-def safe_name(name: str) -> str:
-    name = Path(name).name
-    if not re.fullmatch(NAME_RE, name):
-        raise HTTPException(400, "Invalid name")
-    return name
-
 
 @app.post("/models")
 def upload_model(file: UploadFile = File(...)):
@@ -56,8 +38,6 @@ def upload_model(file: UploadFile = File(...)):
             ]
             if not any(m.filename.endswith(".pth") for m in members):
                 raise HTTPException(400, "Zip contains no .pth file")
-            if sum(m.file_size for m in members) > MAX_ZIP_BYTES:
-                raise HTTPException(400, "Zip too large")
 
             folder.mkdir()
             try:
@@ -72,9 +52,23 @@ def upload_model(file: UploadFile = File(...)):
     return {"uploaded": folder.name, "files": sorted(p.name for p in folder.iterdir())}
 
 
+def _detect_models() -> list[str]:
+    """Return model names found under the configured models directory."""
+    if not MODELS_DIR.exists():
+        return []
+
+    found: set[str] = set()
+    for path in MODELS_DIR.rglob("*.pth"):
+        if path.is_file():
+            # Models are normally stored in one directory per model. Also
+            # accept .pth files placed directly in MODELS_DIR.
+            found.add(path.parent.name if path.parent != MODELS_DIR else path.stem)
+    return sorted(found)
+
+
 @app.get("/models")
 def list_models():
-    return sorted(p.name for p in MODELS_DIR.iterdir() if p.is_dir())
+    return _detect_models()
 
 
 @app.post("/convert")
@@ -84,23 +78,13 @@ def convert(
     model: str = Form(...),
     pitch: int = Form(0),
     f0method: str = Form("rmvpe"),
-    # --- New Settings ---
     index_rate: float = Form(0.7),
     protect: float = Form(0.33),
     hop_length: int = Form(128),
     rms_mix_rate: float = Form(0.25),
-    # --------------------
 ):
     global current_model
-
-    folder = MODELS_DIR / safe_name(model)
-    pths = sorted(folder.glob("*.pth")) if folder.is_dir() else []
-    if not pths:
-        raise HTTPException(404, "Model not found")
-
-    # Automatically look for a matching .index file in the model folder
-    indexes = sorted(folder.glob("*.index"))
-    index_path = str(indexes[0]) if indexes else ""
+    pth_path, index_path = get_model_paths(model)
 
     with tempfile.TemporaryDirectory() as tmp:
         in_path = Path(tmp) / "in.wav"
@@ -109,7 +93,7 @@ def convert(
 
         with lock:
             if current_model != model:
-                rvc.load_model(str(pths[0]))
+                rvc.load_model(str(pth_path))
                 current_model = model
             
             rvc.set_params(
@@ -129,12 +113,17 @@ def convert(
     background.add_task(final.unlink, missing_ok=True)
     return FileResponse(final, media_type="audio/wav", filename="output.wav")
 
+
 def main():
-    import uvicorn
-    """Launched via `uv run rvc-api`"""
+    """Launched standalone via `python api.py`"""
     uvicorn.run(
         "rvc_api:app", 
         host="0.0.0.0", 
-        port=7000, 
+        port=int(API_PORT), 
         reload=True
     )
+
+def live(): 
+    from .live import main
+    main()
+

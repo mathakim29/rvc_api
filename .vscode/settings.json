@@ -1,0 +1,11 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/dist": true,
+        "**/.svelte-kit": true,
+        "**/node_modules": true,
+        "**/.venv": true,
+        "**/*.lock": true
+  }
+}
