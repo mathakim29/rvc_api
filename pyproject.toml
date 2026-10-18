@@ -5,6 +5,7 @@ description = "A simple proof-of-concept for RVC"
 readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
+    "bun>=0.0.8",
     "fairseq>=0.12.2",
     "rvc-python>=0.1.5",
     "setuptools<81",

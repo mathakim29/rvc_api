@@ -1,0 +1,25 @@
+{
+  "name": "rvc_api",
+  "module": "index.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview"
+},
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "latest",
+    "svelte": "^5.57.2",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.59.0"
+  }
+}
