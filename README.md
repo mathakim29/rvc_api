@@ -14,7 +14,6 @@ Models are read from `~/.local/rvc_app/models` by default. Set a different
 directory with `RVC_MODELS_DIR` in `.env`:
 
 ```env
-RVC_MODELS_DIR=/absolute/path/to/models
 API_PORT=7000
 ```
 
@@ -27,15 +26,6 @@ configured directory.
 ```bash
 uv run rvc-api
 ```
-
-List detected models:
-
-```bash
-curl http://localhost:7000/model
-```
-
-`GET /models` is an alias. The directory is scanned on every request, so new
-models appear without restarting the API.
 
 Upload and convert:
 
