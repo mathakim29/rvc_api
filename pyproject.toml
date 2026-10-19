@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 rvc-api = "rvc_api:main"
+rvc-client = "rvc_api:client_main"
 rvc-live = "rvc_api:live"
 
 [build-system]

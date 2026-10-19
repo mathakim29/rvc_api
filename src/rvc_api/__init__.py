@@ -2,6 +2,8 @@ import shutil
 import tempfile
 import zipfile
 import os
+import shutil
+import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
@@ -115,13 +117,52 @@ def convert(
 
 
 def main():
-    """Launched standalone via `python api.py`"""
-    uvicorn.run(
-        "rvc_api:app", 
-        host="0.0.0.0", 
-        port=int(API_PORT), 
-        reload=True
-    )
+    """Run the API and its Svelte development client together."""
+    client = run_client()
+    try:
+        uvicorn.run(
+            "rvc_api:app",
+            host="0.0.0.0",
+            port=int(API_PORT),
+            reload=True,
+        )
+    finally:
+        if client and client.poll() is None:
+            client.terminate()
+            try:
+                client.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                client.kill()
+
+
+def run_client():
+    """Start Vite for the Svelte client, if a JS package runner is available."""
+    project_root = Path(__file__).resolve().parents[2]
+    runner = shutil.which("bun")
+    command = [runner, "run", "dev", "--", "--host", "0.0.0.0"] if runner else None
+    if command is None:
+        runner = shutil.which("npm")
+        command = [runner, "run", "dev", "--", "--host", "0.0.0.0"] if runner else None
+    if command is None:
+        print("Svelte client not started: install Bun or npm and run `npm install`.")
+        return None
+
+    return subprocess.Popen(command, cwd=project_root)
+
+
+def client_main():
+    """Run only the Svelte development client until interrupted."""
+    client = run_client()
+    if client is None:
+        return
+    try:
+        client.wait()
+    except KeyboardInterrupt:
+        client.terminate()
+        try:
+            client.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            client.kill()
 
 def live(): 
     from .live import main
